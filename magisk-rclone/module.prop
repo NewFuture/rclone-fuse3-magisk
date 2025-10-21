@@ -1,7 +1,7 @@
 id=rclone
 name=RClone
-version=v1.71.1
-versionCode=24
+version=v1.71.2
+versionCode=25
 author=NewFuture
 description=Magisk module to manage rclone mounts automatically on boot and during operation.
 updateJson=https://github.com/NewFuture/rclone-fuse3-magisk/releases/latest/download/update-$ABI.json
