@@ -49,20 +49,16 @@ jobs:
           VERSION="${{ steps.check_version.outputs.version }}"
           echo "Fetching rclone release information for $VERSION"
           
-          # Fetch release info from rclone GitHub
-          RELEASE_INFO=$(curl -s --fail \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            -H "User-Agent: rclone-fuse3-magisk-auto-release" \
-            "https://api.github.com/repos/rclone/rclone/releases/tags/$VERSION")
-          
-          if [ -z "$RELEASE_INFO" ] || echo "$RELEASE_INFO" | grep -q "Not Found"; then
-            echo "Warning: Could not fetch rclone release info for $VERSION"
+          # Fetch release info from rclone GitHub using gh CLI
+          if gh api repos/rclone/rclone/releases/tags/$VERSION > /tmp/release_info.json 2>/dev/null; then
+            RELEASE_URL=$(jq -r '.html_url' /tmp/release_info.json)
+            RELEASE_DATE=$(jq -r '.published_at' /tmp/release_info.json | cut -d'T' -f1)
+            echo "Successfully fetched release info for $VERSION"
+          else
+            echo "Warning: Could not fetch rclone release info for $VERSION from GitHub API"
+            echo "Using fallback URLs"
             RELEASE_URL="https://github.com/rclone/rclone/releases/tag/$VERSION"
             RELEASE_DATE=$(date +%Y-%m-%d)
-          else
-            RELEASE_URL=$(echo "$RELEASE_INFO" | jq -r '.html_url')
-            RELEASE_DATE=$(echo "$RELEASE_INFO" | jq -r '.published_at' | cut -d'T' -f1)
           fi
           
           echo "release_url=$RELEASE_URL" >> $GITHUB_OUTPUT
@@ -70,7 +66,7 @@ jobs:
           
           # Generate changelog URL
           # Format: v1.72.0 -> v1-72-0-2025-11-21
-          VERSION_HASH=$(echo "$VERSION" | sed 's/v/v/' | sed 's/\./-/g')
+          VERSION_HASH=$(echo "$VERSION" | sed 's/\./-/g')
           CHANGELOG_URL="https://rclone.org/changelog/#${VERSION_HASH}-${RELEASE_DATE}"
           echo "changelog_url=$CHANGELOG_URL" >> $GITHUB_OUTPUT
           

@@ -124,6 +124,16 @@ mybox:/Backup "/data/backup" --dry-run
 Daily automated workflow checks for new Rclone releases and creates pull requests with version updates.  
 每日自动检查 Rclone 新版本并创建更新 PR。
 
+When the version in `magisk-rclone/module.prop` is updated on the main branch, a GitHub release is automatically created with:
+- Tag and title matching the version
+- Links to the official Rclone GitHub release
+- Links to the official changelog on rclone.org
+
+当 main 分支上的 `magisk-rclone/module.prop` 中的版本更新时，会自动创建 GitHub release，包含：
+- 与版本匹配的标签和标题
+- 链接到官方 Rclone GitHub release
+- 链接到 rclone.org 上的官方更新日志
+
 ---
 
 ## Contributing / 贡献
