@@ -11,7 +11,149 @@ on:
       - main
 
 jobs:
+  # Check if version changed in module.prop (for push to main branch)
+  check-version:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      version_changed: ${{ steps.check_version.outputs.version_changed }}
+      version: ${{ steps.check_version.outputs.version }}
+      release_url: ${{ steps.rclone_info.outputs.release_url }}
+      changelog_url: ${{ steps.rclone_info.outputs.changelog_url }}
+      release_date: ${{ steps.rclone_info.outputs.release_date }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Fetch at least 2 commits to compare
+          submodules: true
+
+      - name: Check if version changed
+        id: check_version
+        run: |
+          # Extract current version
+          CURRENT_VERSION=$(grep -oP '^version=\K.*' magisk-rclone/module.prop)
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Try to get previous version (if commit history exists)
+          git show HEAD~1:magisk-rclone/module.prop > /tmp/old_module.prop 2>/dev/null || echo "version=" > /tmp/old_module.prop
+          PREVIOUS_VERSION=$(grep -oP '^version=\K.*' /tmp/old_module.prop || echo "")
+          echo "Previous version: $PREVIOUS_VERSION"
+          
+          # Check if version actually changed
+          if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ] && [ -n "$CURRENT_VERSION" ]; then
+            echo "Version changed from $PREVIOUS_VERSION to $CURRENT_VERSION"
+            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            echo "version_changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "Version did not change"
+            echo "version_changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get rclone release information
+        if: steps.check_version.outputs.version_changed == 'true'
+        id: rclone_info
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.check_version.outputs.version }}"
+          echo "Fetching rclone release information for $VERSION"
+          
+          # Fetch release info from rclone GitHub using gh CLI
+          if gh api repos/rclone/rclone/releases/tags/$VERSION > /tmp/release_info.json 2>/dev/null; then
+            RELEASE_URL=$(jq -r '.html_url' /tmp/release_info.json)
+            RELEASE_DATE=$(jq -r '.published_at' /tmp/release_info.json | cut -d'T' -f1)
+            echo "Successfully fetched release info for $VERSION"
+          else
+            echo "Warning: Could not fetch rclone release info for $VERSION from GitHub API"
+            echo "Using fallback URLs"
+            RELEASE_URL="https://github.com/rclone/rclone/releases/tag/$VERSION"
+            RELEASE_DATE=$(date +%Y-%m-%d)
+          fi
+          
+          echo "release_url=$RELEASE_URL" >> $GITHUB_OUTPUT
+          echo "release_date=$RELEASE_DATE" >> $GITHUB_OUTPUT
+          
+          # Generate changelog URL
+          # Format: v1.72.0 -> v1-72-0-2025-11-21
+          VERSION_HASH=$(echo "$VERSION" | sed 's/\./-/g')
+          CHANGELOG_URL="https://rclone.org/changelog/#${VERSION_HASH}-${RELEASE_DATE}"
+          echo "changelog_url=$CHANGELOG_URL" >> $GITHUB_OUTPUT
+          
+          echo "Release URL: $RELEASE_URL"
+          echo "Release Date: $RELEASE_DATE"
+          echo "Changelog URL: $CHANGELOG_URL"
+
+      - name: Check if release already exists
+        if: steps.check_version.outputs.version_changed == 'true'
+        id: check_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.check_version.outputs.version }}"
+          
+          # Check if the release already exists
+          if gh release view "$VERSION" > /dev/null 2>&1; then
+            echo "Release $VERSION already exists"
+            echo "release_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Release $VERSION does not exist"
+            echo "release_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        if: steps.check_version.outputs.version_changed == 'true' && steps.check_release.outputs.release_exists == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.check_version.outputs.version }}"
+          RELEASE_URL="${{ steps.rclone_info.outputs.release_url }}"
+          CHANGELOG_URL="${{ steps.rclone_info.outputs.changelog_url }}"
+          RELEASE_DATE="${{ steps.rclone_info.outputs.release_date }}"
+          
+          # Create release body
+          cat > /tmp/release_body.md << EOF
+          ## Rclone $VERSION Release
+          
+          This release updates the rclone version to **$VERSION** (Released: $RELEASE_DATE).
+          
+          ### 📦 Download
+          The build artifacts will be available shortly after the build workflow completes.
+          
+          ### 🔗 Links
+          - **Rclone GitHub Release**: $RELEASE_URL
+          - **Official Changelog**: $CHANGELOG_URL
+          
+          ### 📝 Release Notes
+          Please refer to the official rclone changelog for detailed release notes and changes.
+          
+          ---
+          
+          *This release was automatically created when the version in module.prop was updated.*  
+          *此版本是在 module.prop 中的版本更新时自动创建的。*
+          EOF
+          
+          # Create the release
+          gh release create "$VERSION" \
+            --title "$VERSION" \
+            --notes-file /tmp/release_body.md \
+            --draft=false \
+            --prerelease=false
+
   build:
+    # Run build job if:
+    # 1. It's a pull request, OR
+    # 2. It's a push to main and version changed (depends on check-version job), OR
+    # 3. It's a manual tag push (not triggered by workflow)
+    needs: [check-version]
+    if: |
+      always() && (
+        github.event_name == 'pull_request' ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.check-version.outputs.version_changed == 'true') ||
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))
+      )
     runs-on: ubuntu-latest
     permissions:
           contents: write
@@ -36,7 +178,18 @@ jobs:
 
       # Step 2.3 set TagName
       - name: Set env
-        run: echo "TAG_NAME=$(echo $GITHUB_REF | sed 's/refs\/tags\///')" >> $GITHUB_ENV
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            # For tag pushes, extract tag name from ref
+            echo "TAG_NAME=$(echo $GITHUB_REF | sed 's/refs\/tags\///')" >> $GITHUB_ENV
+          elif [[ "${{ needs.check-version.outputs.version }}" != "" ]]; then
+            # For version changes on main, use the detected version
+            echo "TAG_NAME=${{ needs.check-version.outputs.version }}" >> $GITHUB_ENV
+          else
+            # For other cases (PRs), no tag name
+            echo "TAG_NAME=" >> $GITHUB_ENV
+          fi
+          echo "TAG_NAME: $TAG_NAME"
 
       # Step 3: 设置 Android NDK 环境
       - name: Set up Android NDK
@@ -60,9 +213,9 @@ jobs:
           if-no-files-found: error
           path: "*.zip"
 
-      # Step 6: 如果有 tag，上传构建产物到现有 Release
-      - name: Upload binaries to existing Release
-        if: startsWith(github.ref, 'refs/tags/')
+      # Step 6: 如果有 tag 或版本变更，上传构建产物到 Release
+      - name: Upload binaries to Release
+        if: startsWith(github.ref, 'refs/tags/') || needs.check-version.outputs.version_changed == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
