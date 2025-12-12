@@ -11,7 +11,131 @@ on:
       - main
 
 jobs:
+  # Check if version changed in module.prop (for push to main branch)
+  check-version:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check_version.outputs.version_changed }}
+      version: ${{ steps.check_version.outputs.version }}
+      release_url: ${{ steps.rclone_info.outputs.release_url }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Fetch at least 2 commits to compare
+          submodules: true
+
+      - name: Check if version changed
+        id: check_version
+        run: |
+          # Extract current version
+          CURRENT_VERSION=$(grep -oP '^version=\K.*' magisk-rclone/module.prop)
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Try to get previous version (if commit history exists)
+          git show HEAD~1:magisk-rclone/module.prop > /tmp/old_module.prop 2>/dev/null || echo "version=" > /tmp/old_module.prop
+          PREVIOUS_VERSION=$(grep -oP '^version=\K.*' /tmp/old_module.prop || echo "")
+          echo "Previous version: $PREVIOUS_VERSION"
+          
+          # Check if version actually changed
+          if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ] && [ -n "$CURRENT_VERSION" ]; then
+            echo "Version changed from $PREVIOUS_VERSION to $CURRENT_VERSION"
+            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            echo "version_changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "Version did not change"
+            echo "version_changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get rclone release information
+        if: steps.check_version.outputs.version_changed == 'true'
+        id: rclone_info
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.check_version.outputs.version }}"
+          echo "Fetching rclone release information for $VERSION"
+          
+          # Fetch release info from rclone GitHub using gh CLI
+          gh api repos/rclone/rclone/releases/tags/$VERSION > /tmp/release_info.json
+          
+          RELEASE_URL=$(jq -r '.html_url' /tmp/release_info.json)
+          RELEASE_BODY=$(jq -r '.body' /tmp/release_info.json)
+          
+          echo "release_url=$RELEASE_URL" >> $GITHUB_OUTPUT
+          
+          # Save release body to file for later use
+          echo "$RELEASE_BODY" > /tmp/rclone_release_body.txt
+          
+          echo "Release URL: $RELEASE_URL"
+
+      - name: Check if release already exists
+        if: steps.check_version.outputs.version_changed == 'true'
+        id: check_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.check_version.outputs.version }}"
+          
+          # Check if the release already exists
+          if gh release view "$VERSION" > /dev/null 2>&1; then
+            echo "Release $VERSION already exists"
+            echo "release_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Release $VERSION does not exist"
+            echo "release_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        if: steps.check_version.outputs.version_changed == 'true' && steps.check_release.outputs.release_exists == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.check_version.outputs.version }}"
+          RELEASE_URL="${{ steps.rclone_info.outputs.release_url }}"
+          
+          # Create release body with rclone release notes
+          cat > /tmp/release_body.md << 'EOFBODY'
+          ## Rclone $VERSION Release
+
+          ### 🔗 Links
+          - **Rclone GitHub Release**: $RELEASE_URL
+
+          ### 📝 Release Notes
+
+          EOFBODY
+          cat /tmp/rclone_release_body.txt >> /tmp/release_body.md
+          cat >> /tmp/release_body.md << 'EOFFOOTER'
+
+          ---
+
+          *This release was automatically created when the version in module.prop was updated.*  
+          *此版本是在 module.prop 中的版本更新时自动创建的。*
+          EOFFOOTER
+          
+          # Substitute variables in the release body
+          sed -i "s|\$VERSION|$VERSION|g" /tmp/release_body.md
+          sed -i "s|\$RELEASE_URL|$RELEASE_URL|g" /tmp/release_body.md
+          
+          # Create the release
+          gh release create "$VERSION" \
+            --title "$VERSION" \
+            --notes-file /tmp/release_body.md \
+            --draft=false \
+            --prerelease=false
+
   build:
+    needs: [check-version]
+    # Build for: PR, version changes on main, or manual tags (not from GitHub Actions)
+    if: |
+      !cancelled() && (
+        github.event_name == 'pull_request' ||
+        (needs.check-version.result == 'success' && needs.check-version.outputs.should_build == 'true') ||
+        (startsWith(github.ref, 'refs/tags/') && github.actor != 'github-actions[bot]')
+      )
     runs-on: ubuntu-latest
     permissions:
           contents: write
@@ -36,7 +160,16 @@ jobs:
 
       # Step 2.3 set TagName
       - name: Set env
-        run: echo "TAG_NAME=$(echo $GITHUB_REF | sed 's/refs\/tags\///')" >> $GITHUB_ENV
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            # For tag pushes, extract tag name from ref
+            TAG_NAME=$(echo $GITHUB_REF | sed 's/refs\/tags\///')
+          else
+            # For version changes on main, use the detected version
+            TAG_NAME="${{ needs.check-version.outputs.version }}"
+          fi
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+          echo "TAG_NAME: $TAG_NAME"
 
       # Step 3: 设置 Android NDK 环境
       - name: Set up Android NDK
@@ -60,9 +193,9 @@ jobs:
           if-no-files-found: error
           path: "*.zip"
 
-      # Step 6: 如果有 tag，上传构建产物到现有 Release
-      - name: Upload binaries to existing Release
-        if: startsWith(github.ref, 'refs/tags/')
+      # Step 6: 如果有 tag 或版本变更，上传构建产物到 Release
+      - name: Upload binaries to Release
+        if: env.TAG_NAME != ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
