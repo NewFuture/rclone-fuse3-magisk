@@ -18,12 +18,16 @@ jobs:
       should_build: ${{ steps.check_version.outputs.version_changed }}
       version: ${{ steps.check_version.outputs.version }}
       release_url: ${{ steps.rclone_info.outputs.release_url }}
-      is_main_push: ${{ env.IS_MAIN_PUSH }}
+      is_main_push: ${{ steps.main_push.outputs.is_main_push }}
     permissions:
       contents: write
     env:
       IS_MAIN_PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     steps:
+      - name: Export main push flag
+        id: main_push
+        run: echo "is_main_push=${IS_MAIN_PUSH}" >> "$GITHUB_OUTPUT"
+
       - name: Checkout code
         if: env.IS_MAIN_PUSH == 'true'
         uses: actions/checkout@v4
@@ -146,7 +150,7 @@ jobs:
     steps:
       # Step 1.1: 检出代码并初始化子模块
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: true  # 初始化子模块
 
