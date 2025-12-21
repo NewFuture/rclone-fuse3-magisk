@@ -5,6 +5,7 @@ RCLONEPROP="$RCLONEDIR/module.prop"
 
 [ -z "${RCLONE_LOG_DIR}" ] && RCLONE_LOG_DIR="/data/log"
 FALLBACK_DIRS="$RCLONEDIR/log /data/local/tmp/rclone-log /data/local/tmp"
+LOG_ATTEMPTS="$RCLONE_LOG_DIR $FALLBACK_DIRS"
 TEST_FILE=".rclone_logdir_test"
 
 if mkdir -p "$RCLONE_LOG_DIR" 2>/dev/null && touch "$RCLONE_LOG_DIR/$TEST_FILE" 2>/dev/null; then
@@ -18,7 +19,7 @@ else
     fi
   done
 fi
-[ -w "$RCLONE_LOG_DIR" ] || { echo "Unable to prepare any writable log directory. Tried: $RCLONE_LOG_DIR $FALLBACK_DIRS" >&2; exit 1; }
+[ -w "$RCLONE_LOG_DIR" ] || { echo "Unable to prepare any writable log directory. Tried: $LOG_ATTEMPTS" >&2; exit 1; }
 RCLONEWEB_PID="${RCLONE_LOG_DIR}/rclone_web.pid"
 RCLONESYNC_PID="${RCLONE_LOG_DIR}/rclone_sync.pid"
 
