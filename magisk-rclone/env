@@ -8,15 +8,14 @@ if [ -z "${RCLONE_LOG_DIR}" ]; then
 fi
 if ! mkdir -p "$RCLONE_LOG_DIR" 2>/dev/null; then
   RCLONE_LOG_DIR="$RCLONEDIR/log"
-  mkdir -p "$RCLONE_LOG_DIR" 2>/dev/null
-fi
-if [ ! -d "$RCLONE_LOG_DIR" ]; then
-  RCLONE_LOG_DIR="/data/local/tmp/rclone-log"
-  mkdir -p "$RCLONE_LOG_DIR" 2>/dev/null
-fi
-if [ ! -d "$RCLONE_LOG_DIR" ]; then
-  echo "Failed to prepare log directory, falling back to /data/local/tmp" >&2
-  RCLONE_LOG_DIR="/data/local/tmp"
+  if ! mkdir -p "$RCLONE_LOG_DIR" 2>/dev/null; then
+    RCLONE_LOG_DIR="/data/local/tmp/rclone-log"
+    if ! mkdir -p "$RCLONE_LOG_DIR" 2>/dev/null; then
+      echo "Failed to prepare log directory, falling back to /data/local/tmp" >&2
+      RCLONE_LOG_DIR="/data/local/tmp"
+      mkdir -p "$RCLONE_LOG_DIR" 2>/dev/null
+    fi
+  fi
 fi
 if [ ! -d "$RCLONE_LOG_DIR" ]; then
   echo "Unable to prepare any log directory." >&2
