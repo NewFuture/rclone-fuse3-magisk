@@ -11,7 +11,7 @@ on:
       - main
 
 jobs:
-  # Check if version changed in module.prop (for push to main branch)
+  # Check if version changed in module.prop
   check-version:
     runs-on: ubuntu-latest
     outputs:
