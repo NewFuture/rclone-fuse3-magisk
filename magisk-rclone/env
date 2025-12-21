@@ -10,6 +10,10 @@ if ! mkdir -p "$RCLONE_LOG_DIR" 2>/dev/null; then
   RCLONE_LOG_DIR="$RCLONEDIR/log"
   mkdir -p "$RCLONE_LOG_DIR"
 fi
+if [ ! -d "$RCLONE_LOG_DIR" ]; then
+  RCLONE_LOG_DIR="/data/local/tmp/rclone-log"
+  mkdir -p "$RCLONE_LOG_DIR"
+fi
 RCLONEWEB_PID="${RCLONE_LOG_DIR}/rclone_web.pid"
 RCLONESYNC_PID="${RCLONE_LOG_DIR}/rclone_sync.pid"
 
