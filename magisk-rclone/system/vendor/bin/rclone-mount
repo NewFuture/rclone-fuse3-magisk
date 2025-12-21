@@ -24,10 +24,13 @@ else
     chown media_rw:media_rw "$MEDIA_ENDPOINT"
  
     # Bind to the pass_through path
-    mount --bind "$MNT_DIR" "/mnt/pass_through/0/emulated/0/$NAME"
+    PASS_THROUGH="/mnt/pass_through/0/emulated/0/$NAME"
+    mkdir -p "$PASS_THROUGH"
+    mount --bind "$MNT_DIR" "$PASS_THROUGH"
 
     # Bind to the default runtime path
     DEFAULT_BINDPOINT="/mnt/runtime/default/emulated/0/$NAME" 
+    mkdir -p "$DEFAULT_BINDPOINT"
     mount | grep -q "$DEFAULT_BINDPOINT" || mount --bind "$MNT_DIR" "$DEFAULT_BINDPOINT"
   fi
 fi
