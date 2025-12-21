@@ -4,14 +4,21 @@ RCLONEDIR="${MODPATH:-/data/adb/modules/rclone}"
 RCLONEPROP="$RCLONEDIR/module.prop"
 
 [ -z "${RCLONE_LOG_DIR}" ] && RCLONE_LOG_DIR="/data/log"
-LOG_DIRS="$RCLONE_LOG_DIR $RCLONEDIR/log /data/local/tmp/rclone-log /data/local/tmp"
-for candidate in $LOG_DIRS; do
-  if mkdir -p "$candidate" 2>/dev/null; then
-    RCLONE_LOG_DIR="$candidate"
-    break
-  fi
-done
-[ -d "$RCLONE_LOG_DIR" ] || { echo "Unable to prepare any log directory. Tried: $LOG_DIRS" >&2; exit 1; }
+FALLBACK_DIRS="$RCLONEDIR/log /data/local/tmp/rclone-log /data/local/tmp"
+TEST_FILE=".rclone_logdir_test"
+
+if mkdir -p "$RCLONE_LOG_DIR" 2>/dev/null && touch "$RCLONE_LOG_DIR/$TEST_FILE" 2>/dev/null; then
+  rm -f "$RCLONE_LOG_DIR/$TEST_FILE"
+else
+  for candidate in $FALLBACK_DIRS; do
+    if mkdir -p "$candidate" 2>/dev/null && touch "$candidate/$TEST_FILE" 2>/dev/null; then
+      RCLONE_LOG_DIR="$candidate"
+      rm -f "$candidate/$TEST_FILE"
+      break
+    fi
+  done
+fi
+[ -w "$RCLONE_LOG_DIR" ] || { echo "Unable to prepare any writable log directory. Tried: $RCLONE_LOG_DIR $FALLBACK_DIRS" >&2; exit 1; }
 RCLONEWEB_PID="${RCLONE_LOG_DIR}/rclone_web.pid"
 RCLONESYNC_PID="${RCLONE_LOG_DIR}/rclone_sync.pid"
 
