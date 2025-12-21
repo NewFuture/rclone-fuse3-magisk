@@ -5,13 +5,14 @@ RCLONEPROP="$RCLONEDIR/module.prop"
 
 [ -z "${RCLONE_LOG_DIR}" ] && RCLONE_LOG_DIR="/data/log"
 FALLBACK_DIRS="$RCLONEDIR/log /data/local/tmp/rclone-log /data/local/tmp"
-LOG_ATTEMPTS="$RCLONE_LOG_DIR $FALLBACK_DIRS"
-TEST_FILE=".rclone_logdir_test"
+LOG_ATTEMPTS="$RCLONE_LOG_DIR"
+TEST_FILE=".rclone_logdir_test_$$"
 
 if mkdir -p "$RCLONE_LOG_DIR" 2>/dev/null && touch "$RCLONE_LOG_DIR/$TEST_FILE" 2>/dev/null; then
   rm -f "$RCLONE_LOG_DIR/$TEST_FILE"
 else
   for candidate in $FALLBACK_DIRS; do
+    LOG_ATTEMPTS="$LOG_ATTEMPTS $candidate"
     if mkdir -p "$candidate" 2>/dev/null && touch "$candidate/$TEST_FILE" 2>/dev/null; then
       RCLONE_LOG_DIR="$candidate"
       rm -f "$candidate/$TEST_FILE"
