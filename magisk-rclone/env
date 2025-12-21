@@ -2,7 +2,8 @@
 # override it in conf/env instead.
 RCLONEDIR="${MODPATH:-/data/adb/modules/rclone}"
 RCLONEPROP="$RCLONEDIR/module.prop"
-RCLONE_LOG_DIR="${RCLONE_LOG_DIR:-/data/log}"
+
+RCLONE_LOG_DIR="${RCLONE_LOG_DIR:-${TMPDIR:-/data/local/tmp}}"
 RCLONEWEB_PID="${RCLONE_LOG_DIR}/rclone_web.pid"
 RCLONESYNC_PID="${RCLONE_LOG_DIR}/rclone_sync.pid"
 
