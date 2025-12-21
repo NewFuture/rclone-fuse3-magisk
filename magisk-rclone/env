@@ -11,9 +11,11 @@ if ! mkdir -p "$RCLONE_LOG_DIR" 2>/dev/null; then
   if ! mkdir -p "$RCLONE_LOG_DIR" 2>/dev/null; then
     RCLONE_LOG_DIR="/data/local/tmp/rclone-log"
     if ! mkdir -p "$RCLONE_LOG_DIR" 2>/dev/null; then
-      echo "Failed to prepare log directory, falling back to /data/local/tmp" >&2
+      echo "Failed to prepare log directory, falling back to /data/local/tmp (without subdirectory)" >&2
       RCLONE_LOG_DIR="/data/local/tmp"
-      mkdir -p "$RCLONE_LOG_DIR" 2>/dev/null
+      if ! mkdir -p "$RCLONE_LOG_DIR" 2>/dev/null; then
+        echo "Unable to create /data/local/tmp for logs." >&2
+      fi
     fi
   fi
 fi
