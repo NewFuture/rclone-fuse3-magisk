@@ -14,15 +14,11 @@ if ! mkdir -p "$RCLONE_LOG_DIR" 2>/dev/null; then
       echo "Failed to prepare log directory, using /data/local/tmp" >&2
       RCLONE_LOG_DIR="/data/local/tmp"
       if ! mkdir -p "$RCLONE_LOG_DIR" 2>/dev/null; then
-        echo "Unable to create /data/local/tmp for logs." >&2
+        echo "Unable to use /data/local/tmp for logs." >&2
         exit 1
       fi
     fi
   fi
-fi
-if [ ! -d "$RCLONE_LOG_DIR" ]; then
-  echo "Unable to prepare any log directory." >&2
-  exit 1
 fi
 RCLONEWEB_PID="${RCLONE_LOG_DIR}/rclone_web.pid"
 RCLONESYNC_PID="${RCLONE_LOG_DIR}/rclone_sync.pid"
