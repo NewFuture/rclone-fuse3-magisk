@@ -13,7 +13,6 @@ on:
 jobs:
   # Check if version changed in module.prop (for push to main branch)
   check-version:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       should_build: ${{ steps.check_version.outputs.version_changed }}
@@ -51,7 +50,7 @@ jobs:
           fi
 
       - name: Get rclone release information
-        if: steps.check_version.outputs.version_changed == 'true'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check_version.outputs.version_changed == 'true'
         id: rclone_info
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -73,7 +72,7 @@ jobs:
           echo "Release URL: $RELEASE_URL"
 
       - name: Check if release already exists
-        if: steps.check_version.outputs.version_changed == 'true'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check_version.outputs.version_changed == 'true'
         id: check_release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -90,7 +89,7 @@ jobs:
           fi
 
       - name: Create GitHub Release
-        if: steps.check_version.outputs.version_changed == 'true' && steps.check_release.outputs.release_exists == 'false'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check_version.outputs.version_changed == 'true' && steps.check_release.outputs.release_exists == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -129,11 +128,11 @@ jobs:
 
   build:
     needs: [check-version]
-    # Build for: PR, version changes on main, or manual tags (not from GitHub Actions)
+    # Build for: PR, pushes to main, or manual tags (not from GitHub Actions)
     if: |
       !cancelled() && (
         github.event_name == 'pull_request' ||
-        (needs.check-version.result == 'success' && needs.check-version.outputs.should_build == 'true') ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
         (startsWith(github.ref, 'refs/tags/') && github.actor != 'github-actions[bot]')
       )
     runs-on: ubuntu-latest
@@ -203,6 +202,3 @@ jobs:
           gh release upload "$TAG_NAME" *.zip --clobber
           # 上传 update.json 文件
           gh release upload "$TAG_NAME" update*.json --clobber
-
-
-
