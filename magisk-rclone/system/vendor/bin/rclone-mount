@@ -25,12 +25,12 @@ else
  
     # Bind to the pass_through path
     PASS_THROUGH="/mnt/pass_through/0/emulated/0/$NAME"
-    mkdir -p "$PASS_THROUGH"
+    mkdir -p "$PASS_THROUGH" || { echo "Failed to prepare $PASS_THROUGH"; exit 1; }
     mount --bind "$MNT_DIR" "$PASS_THROUGH"
 
     # Bind to the default runtime path
     DEFAULT_BINDPOINT="/mnt/runtime/default/emulated/0/$NAME" 
-    mkdir -p "$DEFAULT_BINDPOINT"
+    mkdir -p "$DEFAULT_BINDPOINT" || { echo "Failed to prepare $DEFAULT_BINDPOINT"; exit 1; }
     mount | grep -q "$DEFAULT_BINDPOINT" || mount --bind "$MNT_DIR" "$DEFAULT_BINDPOINT"
   fi
 fi

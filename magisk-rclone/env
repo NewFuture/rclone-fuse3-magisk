@@ -4,13 +4,14 @@ RCLONEDIR="${MODPATH:-/data/adb/modules/rclone}"
 RCLONEPROP="$RCLONEDIR/module.prop"
 
 [ -z "${RCLONE_LOG_DIR}" ] && RCLONE_LOG_DIR="/data/log"
-for candidate in "$RCLONE_LOG_DIR" "$RCLONEDIR/log" "/data/local/tmp/rclone-log" "/data/local/tmp"; do
+LOG_DIRS="$RCLONE_LOG_DIR $RCLONEDIR/log /data/local/tmp/rclone-log /data/local/tmp"
+for candidate in $LOG_DIRS; do
   if mkdir -p "$candidate" 2>/dev/null; then
     RCLONE_LOG_DIR="$candidate"
     break
   fi
 done
-[ -d "$RCLONE_LOG_DIR" ] || { echo "Unable to prepare any log directory." >&2; exit 1; }
+[ -d "$RCLONE_LOG_DIR" ] || { echo "Unable to prepare any log directory. Tried: $LOG_DIRS" >&2; exit 1; }
 RCLONEWEB_PID="${RCLONE_LOG_DIR}/rclone_web.pid"
 RCLONESYNC_PID="${RCLONE_LOG_DIR}/rclone_sync.pid"
 
