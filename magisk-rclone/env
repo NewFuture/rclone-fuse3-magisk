@@ -3,8 +3,8 @@
 RCLONEDIR="${MODPATH:-/data/adb/modules/rclone}"
 RCLONEPROP="$RCLONEDIR/module.prop"
 
-[ -z "${RCLONE_LOG_DIR}" ] && RCLONE_LOG_DIR="/data/log"
-FALLBACK_DIRS="$RCLONEDIR/log /data/local/tmp/rclone-log /data/local/tmp"
+[ -z "${RCLONE_LOG_DIR}" ] && RCLONE_LOG_DIR="/data/local/tmp"
+FALLBACK_DIRS="$RCLONEDIR/log /data/log /data/local/tmp/rclone-log /data/local/tmp"
 LOG_ATTEMPTS="$RCLONE_LOG_DIR"
 TEST_FILE=".rclone_logdir_test_$$"
 
