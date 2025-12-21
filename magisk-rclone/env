@@ -3,15 +3,7 @@
 RCLONEDIR="${MODPATH:-/data/adb/modules/rclone}"
 RCLONEPROP="$RCLONEDIR/module.prop"
 
-[ -z "${RCLONE_LOG_DIR}" ] && RCLONE_LOG_DIR="/data/local/tmp"
-TEST_FILE=".rclone_logdir_test_$$"
-
-if mkdir -p "$RCLONE_LOG_DIR" 2>/dev/null && touch "$RCLONE_LOG_DIR/$TEST_FILE" 2>/dev/null; then
-  rm -f "$RCLONE_LOG_DIR/$TEST_FILE"
-else
-  echo "Unable to prepare writable log directory at $RCLONE_LOG_DIR" >&2
-  exit 1
-fi
+[ -z "${RCLONE_LOG_DIR}" ] && RCLONE_LOG_DIR="${TMPDIR:-/data/local/tmp}"
 RCLONEWEB_PID="${RCLONE_LOG_DIR}/rclone_web.pid"
 RCLONESYNC_PID="${RCLONE_LOG_DIR}/rclone_sync.pid"
 
