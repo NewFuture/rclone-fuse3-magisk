@@ -20,6 +20,8 @@ jobs:
       release_url: ${{ steps.rclone_info.outputs.release_url }}
     permissions:
       contents: write
+    env:
+      IS_MAIN_PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -50,7 +52,7 @@ jobs:
           fi
 
       - name: Get rclone release information
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check_version.outputs.version_changed == 'true'
+        if: env.IS_MAIN_PUSH == 'true' && steps.check_version.outputs.version_changed == 'true'
         id: rclone_info
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -72,7 +74,7 @@ jobs:
           echo "Release URL: $RELEASE_URL"
 
       - name: Check if release already exists
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check_version.outputs.version_changed == 'true'
+        if: env.IS_MAIN_PUSH == 'true' && steps.check_version.outputs.version_changed == 'true'
         id: check_release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -89,7 +91,7 @@ jobs:
           fi
 
       - name: Create GitHub Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check_version.outputs.version_changed == 'true' && steps.check_release.outputs.release_exists == 'false'
+        if: env.IS_MAIN_PUSH == 'true' && steps.check_version.outputs.version_changed == 'true' && steps.check_release.outputs.release_exists == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
