@@ -15,7 +15,7 @@ sed -i 's/^description=\(.\{1,4\}| \)\?/description=/' "$RCLONEPROP"
 
 # Wait for the system to boot completely
 COUNT=0
-until { [ "$(getprop sys.boot_completed)" = "1" ] && [ "$(getprop init.svc.bootanim)" = "stopped" ]; } || [ $((COUNT++)) -ge 20 ]; do 
+until { [ "$(getprop sys.boot_completed)" = "1" ] && [ "$(getprop init.svc.bootanim)" = "stopped" ] && [ -e "/sdcard" ]; } || [ $((COUNT++)) -ge 20 ]; do 
   sleep 10;
 done
 L "system is ready after ${COUNT}. Starting the mounting process."
