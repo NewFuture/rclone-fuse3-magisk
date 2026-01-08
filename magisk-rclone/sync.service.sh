@@ -44,13 +44,13 @@ parse_and_execute() {
       ;;
   esac
   
-  # 检查行尾的后台运算符和重定向
-  # Check for background operator and redirection at line boundaries
-  # 注意：不检查中间的 & 和 < > 以允许 URL 参数和其他合法用途
-  # Note: Don't check for & and < > in the middle to allow URL parameters and other legitimate uses
+  # 检查行尾的后台运算符
+  # Check for background operator at line end
+  # 注意：只检查行尾的 & 以避免误判 URL 参数
+  # Note: Only check for & at line end to avoid false positives with URL parameters
   case "$line" in
-    *\&\ *|*\ \&)
-      echo "Error: Line contains background operator, skipping: $line" >> "$logfile"
+    *\ \&|*\&)
+      echo "Error: Line ends with background operator, skipping: $line" >> "$logfile"
       return 1
       ;;
   esac
@@ -123,7 +123,8 @@ sync_all() {
 
       # 解析并执行同步任务
       # Parse and execute sync task
-      parse_and_execute "$line" "sync" "$SYNC_LOG" && TASK_COUNT=$((TASK_COUNT + 1))
+      parse_and_execute "$line" "sync" "$SYNC_LOG"
+      TASK_COUNT=$((TASK_COUNT + 1))
     done < "$RCLONESYNC_CONF"
   fi
 
@@ -139,7 +140,8 @@ sync_all() {
 
       # 解析并执行复制任务
       # Parse and execute copy task
-      parse_and_execute "$line" "copy" "$COPY_LOG" && TASK_COUNT=$((TASK_COUNT + 1))
+      parse_and_execute "$line" "copy" "$COPY_LOG"
+      TASK_COUNT=$((TASK_COUNT + 1))
     done < "$RCLONECOPY_CONF"
   fi
 }
