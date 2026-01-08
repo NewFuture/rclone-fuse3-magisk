@@ -42,15 +42,51 @@ parse_and_execute() {
       echo "Error: Line contains logical operators, skipping: $line" >> "$logfile"
       return 1
       ;;
-    *\>*|*\<*)
-      echo "Error: Line contains redirection, skipping: $line" >> "$logfile"
-      return 1
-      ;;
-    *\&*)
+  esac
+  
+  # 检查行尾的后台运算符和重定向
+  # Check for background operator and redirection at line boundaries
+  # 注意：不检查中间的 & 和 < > 以允许 URL 参数和其他合法用途
+  # Note: Don't check for & and < > in the middle to allow URL parameters and other legitimate uses
+  case "$line" in
+    *\&\ *|*\ \&)
       echo "Error: Line contains background operator, skipping: $line" >> "$logfile"
       return 1
       ;;
   esac
+  
+  # 检查不平衡的引号（可能导致注入）
+  # Check for unbalanced quotes (could lead to injection)
+  _count_quotes() {
+    _str="$1"
+    _quote="$2"
+    _count=0
+    while [ -n "$_str" ]; do
+      case "$_str" in
+        *"$_quote"*)
+          _count=$((_count + 1))
+          _str="${_str#*"$_quote"}"
+          ;;
+        *)
+          break
+          ;;
+      esac
+    done
+    echo "$_count"
+  }
+  
+  _dquote_count=$(_count_quotes "$line" '"')
+  _squote_count=$(_count_quotes "$line" "'")
+  
+  if [ $((_dquote_count % 2)) -ne 0 ]; then
+    echo "Error: Unbalanced double quotes in line, skipping: $line" >> "$logfile"
+    return 1
+  fi
+  
+  if [ $((_squote_count % 2)) -ne 0 ]; then
+    echo "Error: Unbalanced single quotes in line, skipping: $line" >> "$logfile"
+    return 1
+  fi
   
   # 使用 eval 安全地解析引号参数
   # Use eval to safely parse quoted arguments after validation
