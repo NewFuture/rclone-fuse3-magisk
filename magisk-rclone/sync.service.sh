@@ -15,17 +15,53 @@ parse_and_execute() {
   
   # 验证输入，防止命令注入
   # Validate input to prevent command injection
-  # 检查危险字符：反引号、命令替换、管道、重定向等
-  # Check for dangerous characters: backticks, command substitution, pipes, redirects, etc.
+  # 检查危险字符：反引号、命令替换、管道、重定向、变量扩展等
+  # Check for dangerous characters: backticks, command substitution, pipes, redirects, variable expansion, etc.
   case "$line" in
-    *\`*|*\$\(*|*\;*|*\|*|*\&\&*|*\|\|*|*\>*|*\<*|*\&*)
-      echo "Error: Line contains unsafe characters, skipping: $line" >> "$logfile"
+    *\`*)
+      echo "Error: Line contains backticks, skipping: $line" >> "$logfile"
+      return 1
+      ;;
+    *\$\(*)
+      echo "Error: Line contains command substitution \$(), skipping: $line" >> "$logfile"
+      return 1
+      ;;
+    *\$\{*)
+      echo "Error: Line contains parameter expansion \${}, skipping: $line" >> "$logfile"
+      return 1
+      ;;
+    *\;*)
+      echo "Error: Line contains semicolon, skipping: $line" >> "$logfile"
+      return 1
+      ;;
+    *\|*)
+      echo "Error: Line contains pipe, skipping: $line" >> "$logfile"
+      return 1
+      ;;
+    *\&\&*|*\|\|*)
+      echo "Error: Line contains logical operators, skipping: $line" >> "$logfile"
+      return 1
+      ;;
+    *\>*|*\<*)
+      echo "Error: Line contains redirection, skipping: $line" >> "$logfile"
+      return 1
+      ;;
+    *\&*)
+      echo "Error: Line contains background operator, skipping: $line" >> "$logfile"
       return 1
       ;;
   esac
   
   # 使用 eval 安全地解析引号参数
   # Use eval to safely parse quoted arguments after validation
+  # 注意：eval 在验证后是安全的，因为：
+  # Note: eval is safe after validation because:
+  # 1. 所有危险字符已被阻止（命令注入、变量扩展等）
+  # 1. All dangerous characters are blocked (command injection, variable expansion, etc.)
+  # 2. POSIX sh 没有内置的引号解析器，eval 是唯一可移植的方法
+  # 2. POSIX sh has no built-in quote parser, eval is the only portable method
+  # 3. 替代方案（如 xargs、自定义解析器）在 Android 5+ 上不可用或太复杂
+  # 3. Alternatives (like xargs, custom parsers) are unavailable on Android 5+ or too complex
   eval "set -- $line"
   
   # 执行 rclone 命令
