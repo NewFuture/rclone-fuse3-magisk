@@ -15,7 +15,7 @@ parse_and_execute() {
   # 安全检查：阻止危险字符
   # Safety check: block dangerous characters
   case "$line" in
-    *\`*|*\$\(*|*\\*|*\&*|*\;*|*\|*|*\|\|*)
+    *\`*|*\$\(*|*\\*|*\&*|*\;*|*\|*)
       echo "Error: Line contains unsafe characters, skipping: $line" >> "$logfile"
       return 1
       ;;
