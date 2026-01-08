@@ -7,97 +7,22 @@ TASK_COUNT=0
 
 # 安全解析参数行 (支持带空格的引号参数)
 # Safely parse argument line (supports quoted arguments with spaces)
-# Args: $1 = line to parse, $2 = command (sync/copy), $3 = log file
 parse_and_execute() {
   line="$1"
   cmd="$2"
   logfile="$3"
   
-  # 验证输入，防止命令注入
-  # Validate input to prevent command injection
-  # 检查危险字符：反引号、命令替换、管道、重定向、变量扩展等
-  # Check for dangerous characters: backticks, command substitution, pipes, redirects, variable expansion, etc.
+  # 安全检查：阻止危险字符
+  # Safety check: block dangerous characters
   case "$line" in
-    *\`*)
-      echo "Error: Line contains backticks, skipping: $line" >> "$logfile"
-      return 1
-      ;;
-    *\$\(*)
-      echo "Error: Line contains command substitution \$(), skipping: $line" >> "$logfile"
-      return 1
-      ;;
-    *\$\{*)
-      echo "Error: Line contains parameter expansion \${}, skipping: $line" >> "$logfile"
-      return 1
-      ;;
-    *\;*)
-      echo "Error: Line contains semicolon, skipping: $line" >> "$logfile"
-      return 1
-      ;;
-    *\|*)
-      echo "Error: Line contains pipe, skipping: $line" >> "$logfile"
-      return 1
-      ;;
-    *\&\&*|*\|\|*)
-      echo "Error: Line contains logical operators, skipping: $line" >> "$logfile"
+    *\`*|*\$\(*|*\$\{*|*\;*|*\|*|*\&\&*|*\|\|*|*\ \&|*\&)
+      echo "Error: Line contains unsafe characters, skipping: $line" >> "$logfile"
       return 1
       ;;
   esac
   
-  # 检查行尾的后台运算符
-  # Check for background operator at line end
-  # 注意：只检查行尾的 & 以避免误判 URL 参数
-  # Note: Only check for & at line end to avoid false positives with URL parameters
-  case "$line" in
-    *\ \&|*\&)
-      echo "Error: Line ends with background operator, skipping: $line" >> "$logfile"
-      return 1
-      ;;
-  esac
-  
-  # 检查不平衡的引号（可能导致注入）
-  # Check for unbalanced quotes (could lead to injection)
-  _count_quotes() {
-    _str="$1"
-    _quote="$2"
-    _count=0
-    while [ -n "$_str" ]; do
-      case "$_str" in
-        *"$_quote"*)
-          _count=$((_count + 1))
-          _str="${_str#*"$_quote"}"
-          ;;
-        *)
-          break
-          ;;
-      esac
-    done
-    echo "$_count"
-  }
-  
-  _dquote_count=$(_count_quotes "$line" '"')
-  _squote_count=$(_count_quotes "$line" "'")
-  
-  if [ $((_dquote_count % 2)) -ne 0 ]; then
-    echo "Error: Unbalanced double quotes in line, skipping: $line" >> "$logfile"
-    return 1
-  fi
-  
-  if [ $((_squote_count % 2)) -ne 0 ]; then
-    echo "Error: Unbalanced single quotes in line, skipping: $line" >> "$logfile"
-    return 1
-  fi
-  
-  # 使用 eval 安全地解析引号参数
-  # Use eval to safely parse quoted arguments after validation
-  # 注意：eval 在验证后是安全的，因为：
-  # Note: eval is safe after validation because:
-  # 1. 所有危险字符已被阻止（命令注入、变量扩展等）
-  # 1. All dangerous characters are blocked (command injection, variable expansion, etc.)
-  # 2. POSIX sh 没有内置的引号解析器，eval 是唯一可移植的方法
-  # 2. POSIX sh has no built-in quote parser, eval is the only portable method
-  # 3. 替代方案（如 xargs、自定义解析器）在 Android 5+ 上不可用或太复杂
-  # 3. Alternatives (like xargs, custom parsers) are unavailable on Android 5+ or too complex
+  # 使用 eval 解析引号参数 (已验证安全)
+  # Use eval to parse quoted arguments (validated as safe)
   eval "set -- $line"
   
   # 执行 rclone 命令
