@@ -105,15 +105,18 @@ Each line represents a sync job, format:
 
 ```
 gdrive:/Documents "/sdcard/My Documents"
-onedrive:/Photos "/sdcard/OneDrive Photos" --delete-excluded
-mybox:/Backup "/data/backup" --dry-run
+onedrive:/Photos '/sdcard/OneDrive Photos' --delete-excluded
+mybox:/Backup "/data/backup (2024)" --dry-run --transfers=8
+remote1:/path /local/path
 ```
 
 **Notes / 注意：**
-- If the path contains spaces, wrap it in double quotes `"`  
-  路径中如有空格，请用英文双引号 `"` 包裹
+- If the path contains spaces, wrap it in double quotes `"` or single quotes `'`  
+  路径中如有空格，请用英文双引号 `"` 或单引号 `'` 包裹
 - Lines starting with `#` are comments and will be skipped  
   以 `#` 开头的行为注释，会被自动跳过
+- For security, lines containing dangerous characters (backticks, command substitution `$()`, semicolons, pipes, redirects, etc.) will be rejected  
+  为安全起见，包含危险字符（反引号、命令替换 `$()`、分号、管道、重定向等）的行将被拒绝
 - Each sync job runs in background with low priority, logs to `/data/local/tmp/rclone_sync.log` by default  
   每个同步任务会在后台以低优先级执行，默认日志输出到 `/data/local/tmp/rclone_sync.log`
 
