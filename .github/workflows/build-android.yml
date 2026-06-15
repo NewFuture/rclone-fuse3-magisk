@@ -182,7 +182,11 @@ jobs:
       - name: Build arm64-v8a
         run: ./build.sh arm64-v8a $TAG_NAME
 
-      # Step 4.2: 构建 Android x86_64 二进制文件
+      # Step 4.2: 构建 Android armeabi-v7a 二进制文件
+      - name: Build armeabi-v7a
+        run: ./build.sh armeabi-v7a $TAG_NAME
+
+      # Step 4.3: 构建 Android x86_64 二进制文件
       - name: Build x86_64
         run: ./build.sh x86_64 $TAG_NAME
 
@@ -204,6 +208,4 @@ jobs:
           gh release upload "$TAG_NAME" *.zip --clobber
           # 上传 update.json 文件
           gh release upload "$TAG_NAME" update*.json --clobber
-
-
 
