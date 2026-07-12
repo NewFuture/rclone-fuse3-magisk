@@ -188,11 +188,25 @@ jobs:
 
       # Step 5: 上传构建产物
       - name: Upload Android binaries
+        id: upload_android_binaries
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: magisk-rclone
           if-no-files-found: error
           path: "*.zip"
+          compression-level: 0
+          overwrite: true
+
+      - name: Retry upload Android binaries
+        if: steps.upload_android_binaries.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: magisk-rclone
+          if-no-files-found: error
+          path: "*.zip"
+          compression-level: 0
+          overwrite: true
 
       # Step 6: 如果有 tag 或版本变更，上传构建产物到 Release
       - name: Upload binaries to Release
@@ -204,6 +218,5 @@ jobs:
           gh release upload "$TAG_NAME" *.zip --clobber
           # 上传 update.json 文件
           gh release upload "$TAG_NAME" update*.json --clobber
-
 
 
