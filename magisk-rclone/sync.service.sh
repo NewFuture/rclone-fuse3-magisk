@@ -5,6 +5,36 @@ touch "$RCLONESYNC_PID"
 SYNC_LOG="$RCLONE_LOG_DIR/rclone_sync.log"
 TASK_COUNT=0
 
+# 安全解析参数行 (支持带空格的引号参数)
+# Safely parse argument line (supports quoted arguments with spaces)
+parse_and_execute() {
+  line="$1"
+  cmd="$2"
+  logfile="$3"
+  
+  # 安全检查：阻止危险字符
+  # Safety check: block dangerous characters
+  case "$line" in
+    *\`*|*\$\(*|*\\*|*\&*|*\;*|*\|*)
+      echo "Error: Line contains unsafe characters, skipping: $line" >> "$logfile"
+      return 1
+      ;;
+  esac
+  
+  # 使用 eval 解析引号参数 (已验证安全)
+  # Use eval to parse quoted arguments (validated as safe)
+  eval "set -- $line"
+  
+  # 执行 rclone 命令
+  # Execute rclone command
+  nice -n 19 ionice -c3 /vendor/bin/rclone "$cmd" "$@" >> "$logfile" 2>&1
+  if [ $? -ne 0 ]; then
+    echo "Error: rclone $cmd failed for arguments: $*" >> "$logfile"
+    return 1
+  fi
+  return 0
+}
+
 sync_all() {
   TASK_COUNT=0
   # rclone sync
@@ -12,14 +42,13 @@ sync_all() {
     unset RCLONE_RC 
     while read -r line; do
       # 跳过空行和注释
+      # Skip empty lines and comments
       [ -z "$line" ] && continue
       echo "$line" | grep -qE '^\s*#' && continue
 
-      args=( $line )
-      nice -n 19 ionice -c3 /vendor/bin/rclone sync "${args[@]}" >> "$SYNC_LOG" 2>&1
-      if [ $? -ne 0 ]; then
-        echo "Error: rclone sync failed for arguments: ${args[*]}" >> "$SYNC_LOG"
-      fi
+      # 解析并执行同步任务
+      # Parse and execute sync task
+      parse_and_execute "$line" "sync" "$SYNC_LOG"
       TASK_COUNT=$((TASK_COUNT + 1))
     done < "$RCLONESYNC_CONF"
   fi
@@ -30,14 +59,13 @@ sync_all() {
     unset RCLONE_RC 
     while read -r line; do
       # 跳过空行和注释
+      # Skip empty lines and comments
       [ -z "$line" ] && continue
       echo "$line" | grep -qE '^\s*#' && continue
 
-      args=( $line )
-      nice -n 19 ionice -c3 /vendor/bin/rclone copy "${args[@]}" >> "$COPY_LOG" 2>&1
-      if [ $? -ne 0 ]; then
-        echo "Error: rclone copy failed for arguments: ${args[*]}" >> "$COPY_LOG"
-      fi
+      # 解析并执行复制任务
+      # Parse and execute copy task
+      parse_and_execute "$line" "copy" "$COPY_LOG"
       TASK_COUNT=$((TASK_COUNT + 1))
     done < "$RCLONECOPY_CONF"
   fi
